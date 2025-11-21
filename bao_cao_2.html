@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>BÁO CÁO KHỐI LƯỢNG THEO NHÀ THẦU</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Thư viện đọc Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Thư viện Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --primary: #0054a6;
+      --primary-light: #e3f4ff;
+      --accent-cyan: #00bcd4;
+      --bg: #f3f7fb;
+      --bg-card: #ffffff;
+      --text: #1b2440;
+      --text-muted: #6b7a99;
+      --border: #d3deee;
+    }
+
+    body.dark-mode {
+      --bg: #050914;
+      --bg-card: #0f172a;
+      --text: #e5f0ff;
+      --text-muted: #8ea0c2;
+      --border: #1f2937;
+      --primary: #4f8bd6;
+      --primary-light: #102341;
+      --accent-cyan: #00bcd4;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 20px 32px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(0,84,166,0.12), rgba(0,188,212,0.05));
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: 0.03em;
+    }
+
+    .report-row {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .report-row-label {
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: var(--text);
+      transition: 0.15s all;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .btn input[type="file"] {
+      display: none;
+    }
+
+    .btn-icon {
+      font-size: 14px;
+    }
+
+    .tabs-wrapper {
+      margin-top: 16px;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+
+    .tab {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .tab.active {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .summary-card {
+      position: relative;
+      background: linear-gradient(135deg, rgba(0,188,212,0.12), rgba(0,84,166,0.04));
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 10px 12px 12px;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(0,188,212,0.25), transparent 55%);
+      pointer-events: none;
+    }
+
+    .summary-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .summary-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .summary-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card h3 span {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .table-wrapper {
+      flex: 1;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: linear-gradient(145deg, rgba(0,84,166,0.02), rgba(0,188,212,0.03));
+      box-shadow: 0 4px 10px rgba(15,23,42,0.04);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: var(--bg-card);
+      color: var(--text);
+    }
+
+    thead {
+      background: linear-gradient(90deg, var(--primary-light), rgba(255,255,255,0.18));
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th { font-weight: 600; }
+
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+    tbody tr:hover {
+      background: rgba(0,123,255,0.06);
+      transform: translateY(-1px);
+      transition: all 0.12s ease;
+    }
+
+    .table-main th:nth-child(1),
+    .table-main td:nth-child(1) { width: 60px; }
+    .table-main th:nth-child(2),
+    .table-main td:nth-child(2) { width: 140px; }
+    .table-main th:nth-child(3),
+    .table-main td:nth-child(3) { width: 60px; text-align: center; }
+    .table-main th:nth-child(4),
+    .table-main td:nth-child(4),
+    .table-main th:nth-child(5),
+    .table-main td:nth-child(5),
+    .table-main th:nth-child(6),
+    .table-main td:nth-child(6),
+    .table-main th:nth-child(7),
+    .table-main td:nth-child(7),
+    .table-main th:nth-child(8),
+    .table-main td:nth-child(8) { width: 80px; text-align: right; }
+    .table-main th:nth-child(9),
+    .table-main td:nth-child(9) { width: 100%; }
+
+    .col-note,
+    .col-issue,
+    .col-proposal {
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .tag-status {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      display: inline-block;
+    }
+    .tag-open { background:#fff1f0; color:#cf1322; }
+    .tag-progress { background:#fff7e6; color:#fa8c16; }
+    .tag-closed { background:#f6ffed; color:#389e0d; }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .filters select {
+      font-size: 11px;
+      padding: 5px 22px 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      box-shadow: 0 2px 6px rgba(15,23,42,0.06);
+      appearance: none;
+    }
+
+    .issue-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .issue-form input,
+    .issue-form select {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      min-width: 120px;
+    }
+
+    .btn-sm { font-size: 11px; padding: 4px 8px; }
+
+    .issue-add-btn {
+      background: var(--accent-cyan);
+      color: #fff;
+      border-color: var(--accent-cyan);
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 160px !important;
+    }
+
+    @media (max-width: 1024px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .toolbar { justify-content: flex-start; }
+    }
+
+    @media print {
+      .toolbar, .tabs, .btn { display:none !important; }
+      body { background:#ffffff; }
+      .page { padding:0; }
+      .tabs-wrapper { border:none; box-shadow:none; }
+      header { box-shadow:none; border:none; background:#ffffff; margin-bottom:8px; }
+      .card { box-shadow:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="title-block" id="reportTitleBlock">
+        <h1 contenteditable="true">BÁO CÁO KHỐI LƯỢNG THEO NHÀ THẦU</h1>
+        <div class="report-row">
+          <span class="report-row-label">Người báo cáo:</span>
+          <span id="reportAuthor" contenteditable="true"></span>
+        </div>
+        <div class="report-row">
+          <span class="report-row-label">Ngày báo cáo:</span>
+          <span id="reportDate" contenteditable="true"></span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <label class="btn primary">
+          <span class="btn-icon">📂</span> Nhập Excel
+          <input type="file" id="excelFile" accept=".xlsx,.xls" />
+        </label>
+        <button class="btn" id="btnExportExcel"><span class="btn-icon">⬇</span> Xuất Excel</button>
+        <button class="btn" id="btnExportPdf"><span class="btn-icon">📄</span> Xuất PDF</button>
+        <button class="btn" id="btnExportHtml"><span class="btn-icon">🧷</span> Xuất HTML tĩnh</button>
+        <button class="btn" id="btnTheme"><span class="btn-icon">☀</span> Light / Dark</button>
+      </div>
+    </header>
+
+    <div class="tabs-wrapper">
+      <div id="tabs" class="tabs"></div>
+      <div id="contractor-content"></div>
+    </div>
+  </div>
+
+  <script id="embedded-data-json" type="application/json"></script>
+
+  <script>
+    let dataStore = { contractors: {} };
+    let currentContractor = null;
+    let charts = [];
+
+    (function initReportDate() {
+      const span = document.getElementById('reportDate');
+      if (!span || span.textContent.trim()) return;
+      const t = new Date();
+      const dd = String(t.getDate()).padStart(2,'0');
+      const mm = String(t.getMonth()+1).padStart(2,'0');
+      const yyyy = t.getFullYear();
+      span.textContent = dd + '/' + mm + '/' + yyyy;
+    })();
+
+    document.getElementById('excelFile').addEventListener('change', handleFile, false);
+
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+
+        const sheetReport = wb.Sheets['Báo cáo thi công'] || wb.Sheets[wb.SheetNames[0]];
+        const sheetIssues = wb.Sheets['Vuong mac'] || wb.Sheets[wb.SheetNames[1]];
+
+        parseReportSheet(sheetReport);
+        if (sheetIssues) parseIssuesSheet(sheetIssues);
+
+        renderAll();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function ensureContractor(name) {
+      if (!dataStore.contractors[name]) {
+        dataStore.contractors[name] = { reportItems: [], issues: [] };
+      }
+      return dataStore.contractors[name];
+    }
+
+    function parseReportSheet(sheet) {
+      dataStore.contractors = {};
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      let lastContractor = '';
+      let lastPkg = '';
+
+      for (let i = 3; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || r.length === 0) continue;
+
+        let contractor = r[0] ? String(r[0]).trim() : '';
+        let pkg = r[1] ? String(r[1]).trim() : '';
+        const item = r[2] ? String(r[2]).trim() : '';
+
+        if (!contractor && !lastContractor) continue;
+        if (!item) continue;
+
+        if (!contractor) contractor = lastContractor;
+        if (!pkg) pkg = lastPkg;
+
+        lastContractor = contractor;
+        lastPkg = pkg;
+
+        const unit        = r[3] || '';
+        const contractQty = Number(r[4] || 0);
+        const prevCum     = Number(r[5] || 0);
+        const thisWeek    = Number(r[6] || 0);
+        const cum         = r[7] !== '' ? Number(r[7]) : (prevCum + thisWeek);
+        const pct         = contractQty ? (cum / contractQty * 100) : 0;
+        const note        = r[9] || '';
+
+        const ct = ensureContractor(contractor);
+        ct.reportItems.push({ contractor, pkg, item, unit, contractQty, prevCum, thisWeek, cum, pct, note });
+      }
+    }
+
+    function parseIssuesSheet(sheet) {
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      let lastContractor = '';
+
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || r.length === 0) continue;
+
+        let contractor = r[0] ? String(r[0]).trim() : '';
+        if (!contractor && !lastContractor) continue;
+        if (!contractor) contractor = lastContractor;
+        lastContractor = contractor;
+
+        const item       = r[1] ? String(r[1]).trim() : '';
+        const issue      = r[2] ? String(r[2]).trim() : '';
+        const proposal   = r[3] ? String(r[3]).trim() : '';
+        const dateRaised = r[4] || '';
+        const status     = r[5] ? String(r[5]).trim() : '';
+        const owner      = r[6] ? String(r[6]).trim() : '';
+        const dueDate    = r[7] || '';
+
+        const ct = ensureContractor(contractor);
+        ct.issues.push({ item, issue, proposal, dateRaised, status, owner, dueDate });
+      }
+    }
+
+    function renderAll() {
+      const contractors = Object.keys(dataStore.contractors);
+      const tabsEl = document.getElementById('tabs');
+      const contentEl = document.getElementById('contractor-content');
+      tabsEl.innerHTML = '';
+
+      if (!contractors.length) {
+        contentEl.innerHTML = '<p style="font-size:12px;color:var(--text-muted);margin:8px 4px;">Hãy nhập file Excel để xem báo cáo.</p>';
+        return;
+      }
+
+      contractors.forEach((name, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'tab' + (idx === 0 ? ' active' : '');
+        btn.textContent = name;
+        btn.addEventListener('click', () => {
+          currentContractor = name;
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          btn.classList.add('active');
+          renderContractor(name);
+        });
+        tabsEl.appendChild(btn);
+      });
+
+      currentContractor = contractors[0];
+      renderContractor(currentContractor);
+    }
+
+    function getIssueTagClass(status) {
+      const s = (status || '').toLowerCase();
+      if (!s) return 'tag-open';
+      if (s.includes('chưa') || s.includes('open')) return 'tag-open';
+      if (s.includes('đang') || s.includes('progress')) return 'tag-progress';
+      return 'tag-closed';
+    }
+
+    function renderContractor(name) {
+      const container = document.getElementById('contractor-content');
+      const ct = dataStore.contractors[name];
+      if (!ct) return;
+
+      const h1 = document.querySelector('#reportTitleBlock h1');
+      if (h1) h1.textContent = 'BÁO CÁO KHỐI LƯỢNG THEO NHÀ THẦU - ' + name;
+
+      const items  = ct.reportItems;
+      const issues = ct.issues || [];
+
+      const totalContract = items.reduce((s,it)=>s+(it.contractQty||0),0);
+      const totalCum      = items.reduce((s,it)=>s+(it.cum||0),0);
+      const avgPct        = items.length ? items.reduce((s,it)=>s+(it.pct||0),0) / items.length : 0;
+      const completed     = items.filter(it=>it.pct>=90).length;
+      const slow          = items.filter(it=>it.pct<50).length;
+      const remain        = Math.max(totalContract-totalCum,0);
+
+      // Thống kê vướng mắc
+      const totalIssues = issues.length;
+      let issueOpen = 0, issueProgress = 0, issueClosed = 0;
+      issues.forEach(is => {
+        const cls = getIssueTagClass(is.status || '');
+        if (cls === 'tag-open') issueOpen++;
+        else if (cls === 'tag-progress') issueProgress++;
+        else issueClosed++;
+      });
+
+      // Phân bố theo dải 10%
+      const ranges = [
+        { label: '0–10%',  min: 0,  max: 10 },
+        { label: '10–20%', min: 10, max: 20 },
+        { label: '20–30%', min: 20, max: 30 },
+        { label: '30–40%', min: 30, max: 40 },
+        { label: '40–50%', min: 40, max: 50 },
+        { label: '50–60%', min: 50, max: 60 },
+        { label: '60–70%', min: 60, max: 70 },
+        { label: '70–80%', min: 70, max: 80 },
+        { label: '80–90%', min: 80, max: 90 },
+        { label: '90–100%',min: 90, max: 100.0001 }
+      ];
+      const bandCounts = ranges.map(r => items.filter(it => it.pct >= r.min && it.pct < r.max).length);
+      const bandLines = ranges.map((r,idx) => `${r.label}: ${bandCounts[idx]} hạng mục`).join('<br/>');
+
+      const uniquePkgs  = Array.from(new Set(items.map(it=>it.pkg  ||'')));
+      const uniqueItems = Array.from(new Set(items.map(it=>it.item ||'')));
+
+      container.innerHTML = `
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">% hoàn thành bình quân</div>
+            <div class="summary-value">${avgPct.toFixed(1)}%</div>
+            <div class="summary-sub">Trung bình theo hạng mục</div>
+            <div class="summary-sub">Vướng mắc: ${totalIssues} vấn đề</div>
+            <div class="summary-sub">Đã xử lý: ${issueClosed} | Đang xử lý: ${issueProgress} | Chưa xử lý: ${issueOpen}</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Mức độ hạng mục theo dải %</div>
+            <div class="summary-sub">${bandLines}</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Biểu đồ tiến độ tổng</div>
+            <canvas id="chartProgress"></canvas>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <div class="card">
+            <h3>
+              Bảng khối lượng chi tiết
+              <span>Nhà thầu: ${name}</span>
+            </h3>
+            <div class="filters">
+              <label style="font-size:11px;color:var(--text-muted);">Gói thầu:</label>
+              <select id="filterPkg">
+                <option value="">Tất cả</option>
+                ${uniquePkgs.map(p=>`<option value="${p}">${p}</option>`).join('')}
+              </select>
+
+              <label style="font-size:11px;color:var(--text-muted);">Hạng mục:</label>
+              <select id="filterItem">
+                <option value="">Tất cả</option>
+                ${uniqueItems.map(i=>`<option value="${i}">${i}</option>`).join('')}
+              </select>
+
+              <label style="font-size:11px;color:var(--text-muted);">Theo % hoàn thành:</label>
+              <select id="filterStatusPct">
+                <option value="">Tất cả</option>
+                <option value=">=90">≥ 90% (gần hoàn thành)</option>
+                <option value="<50">&lt; 50% (chậm)</option>
+              </select>
+            </div>
+            <div class="table-wrapper" id="tableReportWrapper"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px;">
+          <h3>
+            Danh sách vướng mắc
+            <span>${issues.length ? issues.length + ' vấn đề' : 'Không có dữ liệu'}</span>
+          </h3>
+          <div class="issue-form">
+            <input type="text" id="issueItem" placeholder="Hạng mục" />
+            <input type="text" id="issueContent" placeholder="Vướng mắc" />
+            <input type="text" id="issueProposal" placeholder="Kiến nghị" />
+            <input type="date" id="issueDateRaised" />
+            <select id="issueStatus">
+              <option value="Chưa xử lý">Chưa xử lý</option>
+              <option value="Đang xử lý">Đang xử lý</option>
+              <option value="Đã xử lý">Đã xử lý</option>
+            </select>
+            <input type="text" id="issueOwner" placeholder="Đơn vị phụ trách" />
+            <input type="date" id="issueDueDate" />
+            <button type="button" class="btn btn-sm issue-add-btn" id="btnAddIssue">➕ Thêm vướng mắc</button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hạng mục</th>
+                  <th class="col-issue">Vướng mắc</th>
+                  <th class="col-proposal">Kiến nghị</th>
+                  <th>Ngày phát sinh</th>
+                  <th>Trạng thái</th>
+                  <th>Đơn vị phụ trách</th>
+                  <th>Hạn giải quyết</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  issues.length
+                    ? issues.map(is => {
+                        const tagClass = getIssueTagClass(is.status);
+                        return `
+                          <tr>
+                            <td>${is.item || ''}</td>
+                            <td class="col-issue">${is.issue || ''}</td>
+                            <td class="col-proposal">${is.proposal || ''}</td>
+                            <td>${is.dateRaised || ''}</td>
+                            <td><span class="tag-status ${tagClass}">${is.status || ''}</span></td>
+                            <td>${is.owner || ''}</td>
+                            <td>${is.dueDate || ''}</td>
+                          </tr>
+                        `;
+                      }).join('')
+                    : `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:10px;">Không có vướng mắc cho nhà thầu này.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const tableWrapper = document.getElementById('tableReportWrapper');
+
+      function renderTable() {
+        const pkgFilter  = document.getElementById('filterPkg').value;
+        const itemFilter = document.getElementById('filterItem').value;
+        const pctFilter  = document.getElementById('filterStatusPct').value;
+
+        let list = items.slice();
+        if (pkgFilter)  list = list.filter(it=>it.pkg === pkgFilter);
+        if (itemFilter) list = list.filter(it=>it.item === itemFilter);
+        if (pctFilter === '>=90') list = list.filter(it=>it.pct >= 90);
+        else if (pctFilter === '<50') list = list.filter(it=>it.pct < 50);
+
+        tableWrapper.innerHTML = `
+          <table class="table-main">
+            <thead>
+              <tr>
+                <th>Gói thầu</th>
+                <th>Hạng mục</th>
+                <th>Đơn vị</th>
+                <th>Khối lượng HĐ</th>
+                <th>Lũy kế trước</th>
+                <th>Tuần này</th>
+                <th>Lũy kế đến nay</th>
+                <th>% hoàn thành</th>
+                <th class="col-note">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                list.length
+                  ? list.map(it=>`
+                    <tr>
+                      <td>${it.pkg}</td>
+                      <td>${it.item}</td>
+                      <td>${it.unit}</td>
+                      <td>${it.contractQty.toLocaleString('vi-VN')}</td>
+                      <td>${it.prevCum.toLocaleString('vi-VN')}</td>
+                      <td>${it.thisWeek.toLocaleString('vi-VN')}</td>
+                      <td>${it.cum.toLocaleString('vi-VN')}</td>
+                      <td>${it.pct.toFixed(1)}%</td>
+                      <td class="col-note">${it.note || ''}</td>
+                    </tr>
+                  `).join('')
+                  : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:10px;">Không có dữ liệu phù hợp bộ lọc.</td></tr>`
+              }
+            </tbody>
+          </table>
+        `;
+      }
+
+      renderTable();
+      document.getElementById('filterPkg').addEventListener('change', renderTable);
+      document.getElementById('filterItem').addEventListener('change', renderTable);
+      document.getElementById('filterStatusPct').addEventListener('change', renderTable);
+
+      const addIssueBtn = document.getElementById('btnAddIssue');
+      if (addIssueBtn) {
+        addIssueBtn.addEventListener('click', () => {
+          const item       = document.getElementById('issueItem').value.trim();
+          const issueText  = document.getElementById('issueContent').value.trim();
+          const proposal   = document.getElementById('issueProposal').value.trim();
+          const dateRaised = document.getElementById('issueDateRaised').value;
+          const status     = document.getElementById('issueStatus').value;
+          const owner      = document.getElementById('issueOwner').value.trim();
+          const dueDate    = document.getElementById('issueDueDate').value;
+
+          if (!issueText) {
+            alert('Vui lòng nhập nội dung vướng mắc.');
+            return;
+          }
+
+          const contractor = dataStore.contractors[name];
+          contractor.issues.push({ item, issue: issueText, proposal, dateRaised, status, owner, dueDate });
+          renderContractor(name);
+        });
+      }
+
+      charts.forEach(ch=>ch.destroy());
+      charts = [];
+
+      const canvas = document.getElementById('chartProgress');
+      if (canvas && (totalCum > 0 || remain > 0)) {
+        const ctx = canvas.getContext('2d');
+        charts.push(new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Đã thực hiện', 'Còn lại'],
+            datasets: [{ data: [totalCum, remain] }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            cutout: '65%'
+          }
+        }));
+      }
+    }
+
+    document.getElementById('btnExportExcel').addEventListener('click', () => {
+      const contractors = dataStore.contractors;
+      if (!Object.keys(contractors).length) {
+        alert('Chưa có dữ liệu. Hãy nhập file Excel trước.');
+        return;
+      }
+
+      const reportRows = [];
+      const issueRows  = [];
+
+      Object.values(contractors).forEach(ct => {
+        ct.reportItems.forEach(it => {
+          reportRows.push({
+            'Nhà thầu': it.contractor,
+            'Gói thầu': it.pkg,
+            'Hạng mục': it.item,
+            'Đơn vị': it.unit,
+            'Khối lượng HĐ': it.contractQty,
+            'Lũy kế kỳ trước': it.prevCum,
+            'Thực hiện tuần này': it.thisWeek,
+            'Lũy kế đến nay': it.cum,
+            '% hoàn thành': it.pct,
+            'Ghi chú': it.note
+          });
+        });
+
+        ct.issues.forEach(is => {
+          issueRows.push({
+            'Nhà thầu': ct.reportItems[0]?.contractor || '',
+            'Hạng mục': is.item,
+            'Vướng mắc': is.issue,
+            'Kiến nghị': is.proposal,
+            'Ngày phát sinh': is.dateRaised,
+            'Trạng thái': is.status,
+            'Đơn vị phụ trách': is.owner,
+            'Hạn giải quyết': is.dueDate
+          });
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+      const wsReport = XLSX.utils.json_to_sheet(reportRows);
+      XLSX.utils.book_append_sheet(wb, wsReport, 'Bao_cao_thi_cong');
+      const wsIssue = XLSX.utils.json_to_sheet(issueRows);
+      XLSX.utils.book_append_sheet(wb, wsIssue, 'Vuong_mac');
+
+      XLSX.writeFile(wb, 'bao_cao_khoi_luong.xlsx');
+    });
+
+    document.getElementById('btnExportPdf').addEventListener('click', () => {
+      window.print();
+    });
+
+    document.getElementById('btnExportHtml').addEventListener('click', () => {
+      if (!Object.keys(dataStore.contractors).length) {
+        alert('Chưa có dữ liệu. Hãy nhập file Excel trước.');
+        return;
+      }
+
+      const scriptTag = document.getElementById('embedded-data-json');
+      scriptTag.textContent = JSON.stringify(dataStore);
+
+      const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const url  = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bao_cao_khoi_luong_static.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btnTheme').addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+    });
+
+    (function initFromEmbedded() {
+      const tag = document.getElementById('embedded-data-json');
+      if (!tag) return;
+      const txt = tag.textContent.trim();
+      if (!txt) return;
+      try {
+        const embedded = JSON.parse(txt);
+        if (embedded && embedded.contractors) {
+          dataStore = embedded;
+          renderAll();
+        }
+      } catch (err) {
+        console.warn('Không đọc được embedded data:', err);
+      }
+    })();
+  </script>
+</body>
+</html>
